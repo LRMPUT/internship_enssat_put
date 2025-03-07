@@ -1,110 +1,110 @@
-from segment_lidar import samlidar, view
 import os, logging, argparse, queue
 
-logging.basicConfig(format='[%(levelname)s] %(message)s', level=logging.DEBUG)
+if __name__ == '__main__':
+    logging.basicConfig(format='[%(levelname)s] %(message)s', level=logging.INFO)
 
-parser = argparse.ArgumentParser(
-    prog='LiSAM',
-    description='Generate segmentation from points clouds using SegmentAnything'
-)
-
-# Mandatory arguments
-parser.add_argument("pointclouds_folder")
-parser.add_argument("result_folder")
-
-# CLI options
-parser.add_argument("--debug", "--log-level", default="debug")
-parser.add_argument("--result-name", "--name", "-n", default="results")
-parser.add_argument("--no-confirm", action='store_true', default=False)
-
-# Model parameters
-parser.add_argument("--model-path", "--model", required=False)
-parser.add_argument("--model-type", required=False)
-parser.add_argument("--resolution", default=0.25)
-
-args = parser.parse_args()
-
-no_confirm: bool = args.no_confirm
-pointclouds_folder: str = args.pointclouds_folder
-
-result_path: str = args.result_folder
-result_folder_name: str = args.result_name
-
-model_path: str = args.model_path
-model_type: str = args.model_type
-resolution: float = args.resolution
-
-
-# Check if the path to the model is correct
-if model_path and not os.path.exists(model_path):
-    logging.error(f"the path to the model {model_path} does not exists")
-    exit(1)
-elif model_path and not model_type:
-    # If model type not specified find it with the name of the file
-    logging.debug("the type of the model is not precised, trying to find it")
-    if "vit_b" in model_path:
-        model_type = "vit_b"
-    elif "vit_h" in model_path:
-        model_type = "vit_h"
-    elif "vit_l" in model_path:
-        model_type = "vit_l"
-    
-    if model_type:
-        logging.info(f"model type found is {model_type}")
-    else:
-        logging.error("model type has not been found, please add the argument --model-type with the corresponding model (vit_h, vit_b, vit_l)")
-        exit(1)
-
-# Create masks folder
-if not os.path.exists(os.path.join(result_path, result_folder_name)):
-    logging.info(f"creating folder {result_folder_name}...")
-    os.mkdir(os.path.join(result_path, result_folder_name))
-else:
-    logging.info(f"folder {result_folder_name} already exists")
-
-# Check if results already presents in the folder and remove contents
-if len(os.listdir(os.path.join(result_path, result_folder_name))):
-    logging.warning(f"files are already presents in {os.path.join(result_path, result_folder_name)} folder, they will be deleted are you sure you want to continue [Y/N] ?")
-    if no_confirm:
-        logging.warning("(--no-confirm) enabled, skip the question")
-        answer = "y"
-    else:
-        answer = input("")
-    if answer.lower() == "y":
-        files = os.listdir(os.path.join(result_path, result_folder_name))
-        for file in files:
-            os.unlink(os.path.join(result_path, result_folder_name, file))
-    else:
-        exit(1)
-
-# Create a queue of files
-pointclouds_files = os.listdir(pointclouds_folder)
-logging.info(f"find {len(pointclouds_files)} pointclouds files")
-file_queue = queue.Queue(maxsize=len(pointclouds_files))
-logging.debug(f"file_queue created with size of {len(pointclouds_files)}")
-for file in pointclouds_files:
-    file_queue.put(os.path.join(pointclouds_folder, file))
-    logging.debug(f"file_queue enqueued {file}")
-
-# Load the model
-viewpoint = view.TopView()
-model = samlidar.SamLidar(
-    ckpt_path=model_path,
-    model_type=model_type,
-    resolution=resolution,
-)
-
-# Processing the queue
-while not file_queue.empty():
-    pointclouds_file: str = file_queue.get()
-    logging.info(f"processing {pointclouds_file}...")
-    
-    points = model.read(pointclouds_file)
-    labels, segment_image, image = model.segment(
-        points=points,
-        view=viewpoint,
-        image_path=os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif"),
-        labels_path=os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")
+    parser = argparse.ArgumentParser(
+        prog='LiSAM',
+        description='Generate segmentation from points clouds using SegmentAnything'
     )
 
-logging.info(f"All files have been processed in {os.path.join(result_path, result_folder_name)}")
+    # Mandatory arguments
+    parser.add_argument("pointclouds_folder")
+    parser.add_argument("result_folder")
+
+    # CLI options
+    parser.add_argument("--debug", "--log-level", default="info")
+    parser.add_argument("--result-name", "--name", "-n", default="results")
+    parser.add_argument("--no-confirm", action='store_true', default=False)
+
+    # Model parameters
+    parser.add_argument("--model-path", "--model", required=False)
+    parser.add_argument("--model-type", required=False)
+    parser.add_argument("--resolution", default=0.25)
+
+    args = parser.parse_args()
+
+    no_confirm: bool = bool(args.no_confirm)
+    pointclouds_folder: str = args.pointclouds_folder
+
+    result_path: str = args.result_folder
+    result_folder_name: str = args.result_name
+
+    model_path: str = args.model_path
+    model_type: str = args.model_type
+    resolution: float = float(args.resolution)
+
+
+    # Check if the path to the model is correct
+    if model_path and not os.path.exists(model_path):
+        logging.error(f"the path to the model {model_path} does not exists")
+        exit(1)
+    elif model_path and not model_type:
+        # If model type not specified find it with the name of the file
+        logging.debug("the type of the model is not precised, trying to find it")
+        if "vit_b" in model_path:
+            model_type = "vit_b"
+        elif "vit_h" in model_path:
+            model_type = "vit_h"
+        elif "vit_l" in model_path:
+            model_type = "vit_l"
+        
+        if model_type:
+            logging.info(f"model type found is {model_type}")
+        else:
+            logging.error("model type has not been found, please add the argument --model-type with the corresponding model (vit_h, vit_b, vit_l)")
+            exit(1)
+
+    # Create masks folder
+    if not os.path.exists(os.path.join(result_path, result_folder_name)):
+        logging.info(f"creating folder {result_folder_name}...")
+        os.mkdir(os.path.join(result_path, result_folder_name))
+    else:
+        logging.info(f"folder {result_folder_name} already exists")
+
+    # Check if results already presents in the folder and remove contents
+    if len(os.listdir(os.path.join(result_path, result_folder_name))):
+        logging.warning(f"files are already presents in {os.path.join(result_path, result_folder_name)} folder, they will be deleted are you sure you want to continue [Y/N] ?")
+        if no_confirm:
+            logging.warning("(--no-confirm) enabled, skip the question")
+            answer = "y"
+        else:
+            answer = input("")
+        if answer.lower() == "y":
+            files = os.listdir(os.path.join(result_path, result_folder_name))
+            for file in files:
+                os.unlink(os.path.join(result_path, result_folder_name, file))
+        else:
+            exit(1)
+
+    # Create a queue of files
+    pointclouds_files = os.listdir(pointclouds_folder)
+    logging.info(f"find {len(pointclouds_files)} pointclouds files")
+    file_queue = queue.Queue(maxsize=len(pointclouds_files))
+    logging.debug(f"file_queue created with size of {len(pointclouds_files)}")
+    for file in pointclouds_files:
+        file_queue.put(os.path.join(pointclouds_folder, file))
+        logging.debug(f"file_queue enqueued {file}")
+
+    # Load the model
+    from segment_lidar import samlidar, view
+    viewpoint = view.TopView()
+    model = samlidar.SamLidar(
+        ckpt_path=model_path,
+        model_type=model_type,
+        resolution=resolution,
+    )
+
+    # Processing the queue
+    while not file_queue.empty():
+        pointclouds_file: str = file_queue.get()
+        logging.info(f"processing {pointclouds_file}...")
+        points = model.read(pointclouds_file)
+        model.segment(
+            points=points,
+            view=viewpoint,
+            image_path=os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif"),
+            labels_path=os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")
+        )
+
+    logging.info(f"All files have been processed in {os.path.join(result_path, result_folder_name)}")
