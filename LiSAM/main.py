@@ -20,7 +20,11 @@ if __name__ == '__main__':
     # Model parameters
     parser.add_argument("--model-path", "--model", required=False)
     parser.add_argument("--model-type", required=False)
+
+    # Preprocess parameters
     parser.add_argument("--resolution", default=0.25)
+    parser.add_argument("--subsampling", default=-1.0)
+    parser.add_argument("--subsampling-method", default="voxel")
 
     args = parser.parse_args()
 
@@ -32,15 +36,23 @@ if __name__ == '__main__':
 
     model_path: str = args.model_path
     model_type: str = args.model_type
-    resolution: float = float(args.resolution)
 
+    resolution: float = float(args.resolution)
+    subsampling: float = float(args.subsampling)
+    subsampling_method: str = args.subsampling_method
+
+    # Check if model type is correct
+    if model_type and model_type not in ["vit_b", "vit_h", "vit_l"]:
+        logging.error("model type is not valid, should be vit_b, vit_h or vit_l")
+        exit(1)
 
     # Check if the path to the model is correct
     if model_path and not os.path.exists(model_path):
         logging.error(f"the path to the model {model_path} does not exists")
         exit(1)
-    elif model_path and not model_type:
-        # If model type not specified find it with the name of the file
+    
+    # If model type not specified find it with the name of the file
+    if model_path and not model_type:
         logging.debug("the type of the model is not precised, trying to find it")
         if "vit_b" in model_path:
             model_type = "vit_b"
@@ -54,6 +66,11 @@ if __name__ == '__main__':
         else:
             logging.error("model type has not been found, please add the argument --model-type with the corresponding model (vit_h, vit_b, vit_l)")
             exit(1)
+        
+    # Check if subsampling method is correct
+    if subsampling_method and subsampling_method not in ["random", "voxel", "uniform"]:
+        logging.error("subsampling method is not valid, should be random, voxel or uniform")
+        exit(1)
 
     # Create masks folder
     if not os.path.exists(os.path.join(result_path, result_folder_name)):
@@ -88,6 +105,8 @@ if __name__ == '__main__':
 
     # Load the model
     from segment_lidar import samlidar, view
+    import pcl
+
     viewpoint = view.TopView()
     model = samlidar.SamLidar(
         ckpt_path=model_path,
@@ -99,9 +118,18 @@ if __name__ == '__main__':
     while not file_queue.empty():
         pointclouds_file: str = file_queue.get()
         logging.info(f"processing {pointclouds_file}...")
-        points = model.read(pointclouds_file)
+        points = pcl.las_to_open3d(pointclouds_file)
+
+        if subsampling > 0:
+            logging.info(f"downsampling to {subsampling} (method: {subsampling_method})")
+            try:
+                points = pcl.downsample(points, subsampling, method=subsampling_method)
+            except Exception as err:
+                logging.error(f"Execption raised when downsampling: {err}")
+                exit(1)
+
         model.segment(
-            points=points,
+            points=pcl.open3d_to_numpy(points),
             view=viewpoint,
             image_path=os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif"),
             labels_path=os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")
