@@ -1,5 +1,6 @@
 import os, logging, argparse, queue
 import numpy as np
+from LiSAM.pcl import downsample, las_to_open3d, open3d_to_numpy
 
 def run(
         pointclouds_folder: str,
@@ -76,7 +77,6 @@ def run(
 
     # Load the model
     from segment_lidar import samlidar, view
-    import pcl
 
     viewpoint = view.TopView()
     model = samlidar.SamLidar(
@@ -90,18 +90,18 @@ def run(
     while not file_queue.empty():
         pointclouds_file: str = file_queue.get()
         logging.info(f"processing {pointclouds_file}...")
-        points = pcl.las_to_open3d(pointclouds_file)
+        points = las_to_open3d(pointclouds_file)
 
         if subsampling > 0:
             logging.info(f"downsampling to {subsampling} (method: {subsampling_method})")
             try:
-                points = pcl.downsample(points, subsampling, method=subsampling_method)
+                points = downsample(points, subsampling, method=subsampling_method)
             except Exception as err:
                 logging.error(f"Execption raised when downsampling: {err}")
                 exit(1)
 
         _, segmented_image, _ = model.segment(
-            points=pcl.open3d_to_numpy(points),
+            points=open3d_to_numpy(points),
             view=viewpoint,
             image_path=os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif"),
             labels_path=os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")
