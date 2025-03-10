@@ -1,46 +1,17 @@
 import os, logging, argparse, queue
+import numpy as np
 
-if __name__ == '__main__':
-    logging.basicConfig(format='[%(levelname)s] %(message)s', level=logging.INFO)
-
-    parser = argparse.ArgumentParser(
-        prog='LiSAM',
-        description='Generate segmentation from points clouds using SegmentAnything'
-    )
-
-    # Mandatory arguments
-    parser.add_argument("pointclouds_folder")
-    parser.add_argument("result_folder")
-
-    # CLI options
-    parser.add_argument("--debug", "--log-level", default="info")
-    parser.add_argument("--result-name", "--name", "-n", default="results")
-    parser.add_argument("--no-confirm", action='store_true', default=False)
-
-    # Model parameters
-    parser.add_argument("--model-path", "--model", required=False)
-    parser.add_argument("--model-type", required=False)
-
-    # Preprocess parameters
-    parser.add_argument("--resolution", default=0.25)
-    parser.add_argument("--subsampling", default=-1.0)
-    parser.add_argument("--subsampling-method", default="voxel")
-
-    args = parser.parse_args()
-
-    no_confirm: bool = bool(args.no_confirm)
-    pointclouds_folder: str = args.pointclouds_folder
-
-    result_path: str = args.result_folder
-    result_folder_name: str = args.result_name
-
-    model_path: str = args.model_path
-    model_type: str = args.model_type
-
-    resolution: float = float(args.resolution)
-    subsampling: float = float(args.subsampling)
-    subsampling_method: str = args.subsampling_method
-
+def run(
+        pointclouds_folder: str,
+        result_path: str,
+        result_folder_name: str,
+        model_path: str,
+        resolution: float = 0.25,
+        subsampling: float = 0,
+        subsampling_method: str = "voxel",
+        model_type: str = None,
+        no_confirm: bool = True
+    ) -> dict:
     # Check if model type is correct
     if model_type and model_type not in ["vit_b", "vit_h", "vit_l"]:
         logging.error("model type is not valid, should be vit_b, vit_h or vit_l")
@@ -115,6 +86,7 @@ if __name__ == '__main__':
     )
 
     # Processing the queue
+    count_mask_by_pcl = dict()
     while not file_queue.empty():
         pointclouds_file: str = file_queue.get()
         logging.info(f"processing {pointclouds_file}...")
@@ -128,11 +100,71 @@ if __name__ == '__main__':
                 logging.error(f"Execption raised when downsampling: {err}")
                 exit(1)
 
-        model.segment(
+        _, segmented_image, _ = model.segment(
             points=pcl.open3d_to_numpy(points),
             view=viewpoint,
             image_path=os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif"),
             labels_path=os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")
         )
+        count_mask_by_pcl.update({pointclouds_file: np.max(segmented_image)})
 
     logging.info(f"All files have been processed in {os.path.join(result_path, result_folder_name)}")
+
+    return count_mask_by_pcl
+
+if __name__ == '__main__':
+    logging.basicConfig(format='[%(levelname)s] %(message)s', level=logging.INFO)
+
+    parser = argparse.ArgumentParser(
+        prog='LiSAM',
+        description='Generate segmentation from points clouds using SegmentAnything'
+    )
+
+    # Mandatory arguments
+    parser.add_argument("pointclouds_folder")
+    parser.add_argument("result_folder")
+
+    # CLI options
+    parser.add_argument("--debug", "--log-level", default="info")
+    parser.add_argument("--result-name", "--name", "-n", default="results")
+    parser.add_argument("--no-confirm", action='store_true', default=False)
+
+    # Model parameters
+    parser.add_argument("--model-path", "--model", required=False)
+    parser.add_argument("--model-type", required=False)
+
+    # Preprocess parameters
+    parser.add_argument("--resolution", default=0.25)
+    parser.add_argument("--subsampling", default=-1.0)
+    parser.add_argument("--subsampling-method", default="voxel")
+
+    args = parser.parse_args()
+
+    pointclouds_folder: str = args.pointclouds_folder
+    result_path: str = args.result_folder
+
+    result_folder_name: str = args.result_name
+    no_confirm: bool = bool(args.no_confirm)
+
+    model_path: str = args.model_path
+    model_type: str = args.model_type
+
+    resolution: float = float(args.resolution)
+    subsampling: float = float(args.subsampling)
+    subsampling_method: str = args.subsampling_method
+
+    count = run(
+        pointclouds_folder = pointclouds_folder,
+        result_path = result_path,
+        result_folder_name = result_folder_name,
+        model_path = model_path,
+        resolution = resolution,
+        subsampling = subsampling,
+        subsampling_method = subsampling_method,
+        model_type = model_type,
+        no_confirm = no_confirm
+    )
+
+    logging.info(f"Masks count by PCL file")
+    for k, v in count.items():
+        logging.info(f"|> {k} => {v} masks found")
