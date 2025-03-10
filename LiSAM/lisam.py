@@ -1,6 +1,34 @@
-import os, logging, argparse, queue
+import os, logging, queue, laspy
+import open3d as o3d
 import numpy as np
-from LiSAM.pcl import downsample, las_to_open3d, open3d_to_numpy
+
+def las_to_open3d(las_file: str):
+    las_pcl = laspy.read(las_file)
+    pcl = o3d.t.geometry.PointCloud()
+
+    points = np.vstack((las_pcl.x, las_pcl.y, las_pcl.z)).T
+    pcl.point.positions = o3d.core.Tensor(points)
+
+    points = np.vstack((las_pcl.red / 255.0, las_pcl.green / 255.0, las_pcl.blue / 255.0)).T
+    pcl.point.colors = o3d.core.Tensor(points)
+
+    return pcl
+
+def open3d_to_numpy(pcl):
+    return np.hstack((pcl.point.positions.numpy(), pcl.point.colors.numpy()))
+
+def downsample(pcl, parameter: float, method: str = "voxel"):
+    if method == "voxel":
+        # Voxel downsampling
+        return pcl.voxel_down_sample(voxel_size=parameter)
+    elif method == "uniform":
+        # Uniform downsampling
+        return pcl.uniform_down_sample(int(parameter))
+    elif method == "random":
+        # Random downsampling
+        return pcl.random_down_sample(parameter)
+    else:
+        raise Exception(f"downsampling method {method} unknown")
 
 def run(
         pointclouds_folder: str,
@@ -111,60 +139,3 @@ def run(
     logging.info(f"All files have been processed in {os.path.join(result_path, result_folder_name)}")
 
     return count_mask_by_pcl
-
-if __name__ == '__main__':
-    logging.basicConfig(format='[%(levelname)s] %(message)s', level=logging.INFO)
-
-    parser = argparse.ArgumentParser(
-        prog='LiSAM',
-        description='Generate segmentation from points clouds using SegmentAnything'
-    )
-
-    # Mandatory arguments
-    parser.add_argument("pointclouds_folder")
-    parser.add_argument("result_folder")
-
-    # CLI options
-    parser.add_argument("--debug", "--log-level", default="info")
-    parser.add_argument("--result-name", "--name", "-n", default="results")
-    parser.add_argument("--no-confirm", action='store_true', default=False)
-
-    # Model parameters
-    parser.add_argument("--model-path", "--model", required=False)
-    parser.add_argument("--model-type", required=False)
-
-    # Preprocess parameters
-    parser.add_argument("--resolution", default=0.25)
-    parser.add_argument("--subsampling", default=-1.0)
-    parser.add_argument("--subsampling-method", default="voxel")
-
-    args = parser.parse_args()
-
-    pointclouds_folder: str = args.pointclouds_folder
-    result_path: str = args.result_folder
-
-    result_folder_name: str = args.result_name
-    no_confirm: bool = bool(args.no_confirm)
-
-    model_path: str = args.model_path
-    model_type: str = args.model_type
-
-    resolution: float = float(args.resolution)
-    subsampling: float = float(args.subsampling)
-    subsampling_method: str = args.subsampling_method
-
-    count = run(
-        pointclouds_folder = pointclouds_folder,
-        result_path = result_path,
-        result_folder_name = result_folder_name,
-        model_path = model_path,
-        resolution = resolution,
-        subsampling = subsampling,
-        subsampling_method = subsampling_method,
-        model_type = model_type,
-        no_confirm = no_confirm
-    )
-
-    logging.info(f"Masks count by PCL file")
-    for k, v in count.items():
-        logging.info(f"|> {k} => {v} masks found")
