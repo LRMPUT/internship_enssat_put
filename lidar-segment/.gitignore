@@ -1,1 +1,5 @@
 venv/
+
+
+lidar-segment/segmented.las
+lidar-segment/data/*
