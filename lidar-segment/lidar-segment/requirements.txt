@@ -1,0 +1,9 @@
+opencv-python
+torchvision
+torchaudio
+pylas
+open3d
+numpy
+laspy
+matplotlib
+segment-lidar
