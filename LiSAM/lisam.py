@@ -1,4 +1,5 @@
 import os, logging, queue, laspy
+import PIL.Image as Image
 import open3d as o3d
 import numpy as np
 
@@ -39,7 +40,8 @@ def run(
         subsampling: float = 0,
         subsampling_method: str = "voxel",
         model_type: str = None,
-        no_confirm: bool = True
+        no_confirm: bool = True,
+        confirm: bool = False,
     ) -> dict:
     # Check if model type is correct
     if model_type and model_type not in ["vit_b", "vit_h", "vit_l"]:
@@ -80,10 +82,14 @@ def run(
         logging.info(f"folder {result_folder_name} already exists")
 
     # Check if results already presents in the folder and remove contents
+    skip_computing = False
     if len(os.listdir(os.path.join(result_path, result_folder_name))):
         logging.warning(f"files are already presents in {os.path.join(result_path, result_folder_name)} folder, they will be deleted are you sure you want to continue [Y/N] ?")
         if no_confirm:
-            logging.warning("(--no-confirm) enabled, skip the question")
+            logging.warning("(--no-confirm) enabled, say no and skip the question")
+            answer = "n"
+        elif confirm:
+            logging.warning("(--confirm) enabled, say yes and skip the question")
             answer = "y"
         else:
             answer = input("")
@@ -92,7 +98,7 @@ def run(
             for file in files:
                 os.unlink(os.path.join(result_path, result_folder_name, file))
         else:
-            exit(1)
+            skip_computing = True
 
     # Create a queue of files
     pointclouds_files = os.listdir(pointclouds_folder)
@@ -117,23 +123,32 @@ def run(
     count_mask_by_pcl = dict()
     while not file_queue.empty():
         pointclouds_file: str = file_queue.get()
-        logging.info(f"processing {pointclouds_file}...")
-        points = las_to_open3d(pointclouds_file)
+        segmented_image, rgb_image = None, None
 
-        if subsampling > 0:
-            logging.info(f"downsampling to {subsampling} (method: {subsampling_method})")
-            try:
-                points = downsample(points, subsampling, method=subsampling_method)
-            except Exception as err:
-                logging.error(f"Execption raised when downsampling: {err}")
-                exit(1)
+        if not skip_computing:
+            logging.info(f"processing {pointclouds_file}...")
+            points = las_to_open3d(pointclouds_file)
 
-        _, segmented_image, _ = model.segment(
-            points=open3d_to_numpy(points),
-            view=viewpoint,
-            image_path=os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif"),
-            labels_path=os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")
-        )
+            if subsampling > 0:
+                logging.info(f"downsampling to {subsampling} (method: {subsampling_method})")
+                try:
+                    points = downsample(points, subsampling, method=subsampling_method)
+                except Exception as err:
+                    logging.error(f"Exception raised when downsampling: {err}")
+                    exit(1)
+
+            _, segmented_image, rgb_image = model.segment(
+                points=open3d_to_numpy(points),
+                view=viewpoint,
+                image_path=os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif"),
+                labels_path=os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")
+            )
+            rgb_image = rgb_image.transpose(1, 2, 0) # [channels, height, width] --> [height, width, channels]  (=🝦 ﻌ 🝦=)
+        else:
+            logging.info(f"skip processing of {pointclouds_file}")
+            rgb_image = np.array(Image.open(os.path.join(result_path, result_folder_name, f"raster_{pointclouds_file.replace('/', '_')}.tif")))
+            segmented_image = np.array(Image.open(os.path.join(result_path, result_folder_name, f"label_{pointclouds_file.replace('/', '_')}.tif")))
+
         count_mask_by_pcl.update({pointclouds_file: np.max(segmented_image)})
 
     logging.info(f"All files have been processed in {os.path.join(result_path, result_folder_name)}")

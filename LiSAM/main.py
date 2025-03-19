@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument("--debug", "--log-level", default="info")
     parser.add_argument("--result-name", "--name", "-n", default="results")
     parser.add_argument("--no-confirm", action='store_true', default=False)
+    parser.add_argument("--confirm", action='store_true', default=False)
 
     # Model parameters
     parser.add_argument("--model-path", "--model", required=False)
@@ -34,6 +35,7 @@ if __name__ == '__main__':
 
     result_folder_name: str = args.result_name
     no_confirm: bool = bool(args.no_confirm)
+    confirm: bool = bool(args.confirm)
 
     model_path: str = args.model_path
     model_type: str = args.model_type
@@ -51,9 +53,10 @@ if __name__ == '__main__':
         subsampling = subsampling,
         subsampling_method = subsampling_method,
         model_type = model_type,
-        no_confirm = no_confirm
+        no_confirm = no_confirm,
+        confirm = confirm
     )
 
-    logging.info(f"Masks count by PCL file")
+    logging.debug(f"Masks count by PCL file")
     for k, v in count.items():
-        logging.info(f"|> {k} => {v} masks found")
+        logging.debug(f"|> {k} => {v} masks found")
