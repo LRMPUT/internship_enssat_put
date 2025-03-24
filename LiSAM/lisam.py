@@ -40,8 +40,7 @@ def run(
         subsampling: float = 0,
         subsampling_method: str = "voxel",
         model_type: str = None,
-        no_confirm: bool = True,
-        confirm: bool = False,
+        default_answer: str = "y"
     ) -> dict:
     # Check if model type is correct
     if model_type and model_type not in ["vit_b", "vit_h", "vit_l"]:
@@ -84,13 +83,9 @@ def run(
     # Check if results already presents in the folder and remove contents
     skip_computing = False
     if len(os.listdir(os.path.join(result_path, result_folder_name))):
-        logging.warning(f"files are already presents in {os.path.join(result_path, result_folder_name)} folder, they will be deleted are you sure you want to continue [Y/N] ?")
-        if no_confirm:
-            logging.warning("(--no-confirm) enabled, say no and skip the question")
-            answer = "n"
-        elif confirm:
-            logging.warning("(--confirm) enabled, say yes and skip the question")
-            answer = "y"
+        logging.warning(f"files are already presents in {os.path.join(result_path, result_folder_name)} folder, do you want them to be deleted [Y/N] ?")
+        if len(default_answer) > 0:
+            answer = default_answer
         else:
             answer = input("")
         if answer.lower() == "y":

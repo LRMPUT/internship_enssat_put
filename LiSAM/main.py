@@ -53,8 +53,7 @@ if __name__ == '__main__':
         subsampling = subsampling,
         subsampling_method = subsampling_method,
         model_type = model_type,
-        no_confirm = no_confirm,
-        confirm = confirm
+        default_answer = "y" if confirm else "n" if no_confirm else ""
     )
 
     logging.debug(f"Masks count by PCL file")
