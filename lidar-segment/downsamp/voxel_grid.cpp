@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     if (argc < 3)
     {
         printf("Not enough args \n");
-        printf("Command should be : ./voxel_grid <base file> <end file>");
+        printf("Command should be : ./voxel_grid <base file> <end file>\n");
         exit(0);
     }
 
@@ -32,7 +32,8 @@ int main(int argc, char *argv[])
     pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
     sor.setInputCloud(cloud);
     printf("Leaf size : %f %f %f\n", sor.getLeafSize()[0], sor.getLeafSize()[1], sor.getLeafSize()[2]);
-    sor.setLeafSize(0.005f, 0.005f, 0.005f); // Plus c'est proche de 0, moins les points seront supprimés
+    sor.setLeafSize(0.05f, 0.05f, 0.05f);    // Plus c'est proche de 0, moins les points seront supprimés
+                                                // Close to 0, less points will be deleted
     sor.filter(*cloud_filtered);
 
     std::cerr << "PointCloud after filtering: " << cloud_filtered->width * cloud_filtered->height
