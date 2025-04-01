@@ -8,7 +8,8 @@ int main(int argc, char *argv[])
 {
     if (argc < 3)
     {
-        printf("Pas assez d'arguments \n");
+        printf("Not enough args \n");
+        printf("Command should be : ./voxel_grid <base file> <end file>");
         exit(0);
     }
 

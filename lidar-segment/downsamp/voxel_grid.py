@@ -28,8 +28,9 @@ def downsample(input_file, reduc_percent):
 If your pointcloud is expressed in meters, voxel_size=0.02 will mean the voxel grid will be made up of voxels measuring 2 x 2 x 2 cm. 
 After filtering the pointcloud density is reducted so that you have only one point per such voxel. 
 '''
-down_file = voxel_downsample("table_scene_lms400.pcd")
-print(type(down_file))
+down_file = downsample("table_scene_lms400.pcd", 50)
+print(down_file)
 o3d.io.write_point_cloud("./sampled.pcd", down_file)
-down_file = voxel_downsample("./sampled.pcd")
-o3d.visualization.draw_geometries([down_file])
+down_file = downsample("./sampled.pcd", 50)
+print(down_file)
+#o3d.visualization.draw_geometries([down_file])
