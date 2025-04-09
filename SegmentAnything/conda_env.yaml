@@ -77,7 +77,7 @@ dependencies:
       - fsspec==2025.2.0
       - gdown==5.2.0
       - geopandas==1.0.1
-      - groundingdino-py==0.6.0
+      - groundingdino-py
       - huggingface-hub==0.29.1
       - idna==3.10
       - importlib-metadata==8.6.1
